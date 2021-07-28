@@ -4,7 +4,7 @@ from pyglet.window import *
 from pyglet import image
 from opensimplex import OpenSimplex
 
-tmp = OpenSimplex()
+noise = OpenSimplex()
 
 FACES=[(0,1,0),(0,-1,0),(-1,0,0),(1,0,0),(0,0,1),(0,0,-1),(0,0,0)]
 TEX=0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1
@@ -34,7 +34,7 @@ def new_crosshair(w,h):
 
 def get_tex(f):
     d = BLOCKS[f]
-    TEXTURES[f] = pyglet.graphics.TextureGroup(pyglet.image.load("./textures/"+d).get_texture())
+    TEXTURES[f] = pyglet.graphics.TextureGroup(pyglet.image.load("./web/textures/"+d).get_texture())
     glEnable(GL_TEXTURE_2D)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
@@ -102,20 +102,17 @@ class World:
 
     def exposed(self, pos):
         x,y,z = pos
-        for dx, dy, dz in FACES:
-            if (x + dx, y + dy, z + dz) not in self.blocks:
-                return True
-        return False
+        return any((x + dx, y + dy, z + dz) not in self.blocks for dx, dy, dz in FACES)
 
     def gen_chunk(self,pos):
         chunk_x = int(pos[0]/16)
         chunk_z = int(pos[2]/16)
-        x,y,z = 0,0,0
         if (chunk_x,chunk_z) not in self.chunks:
             self.chunks.add((chunk_x,chunk_z))
+            x,y,z = 0,0,0
             while z < 16:
                 while x < 16:
-                    y_max = 6 + int(((tmp.noise2d(chunk_x+x/16, chunk_z+z/16)+1)/2)*15)
+                    y_max = 6 + int(((noise.noise2d(chunk_x+x/16, chunk_z+z/16)+1)/2)*15)
                     while y < y_max:
                         if y == y_max-1: id = "grass"
                         elif y < 3: id = "stone"
@@ -154,8 +151,8 @@ class Window(pyglet.window.Window):
         self.fps_display = pyglet.window.FPSDisplay(self)
         
         #Blits
-        self.hud = image.load('./textures/hud.png')
-        self.active = image.load('./textures/active.png')
+        self.hud = image.load('./web/textures/hud.png')
+        self.active = image.load('./web/textures/active.png')
         self.crosshair =  new_crosshair(self.width,self.height)
         self.keys = key.KeyStateHandler()
         self.push_handlers(self.keys)
@@ -219,7 +216,6 @@ class Window(pyglet.window.Window):
         if KEY == key.M: eel.init('web'); eel.start('craft.html')
     
     def gen_rad_chunks(self,pos):
-        x,y,z = normalize(pos)
         points = {
             (0,0,0),
             (16,0,0),
@@ -231,6 +227,7 @@ class Window(pyglet.window.Window):
             (-16,0,-16),
             (16,0,-16),
         }
+        x,y,z = normalize(pos)
         for point in points:
             x_,y_,z_ = point
             self.world.gen_chunk((x+x_,y_,z+z_))

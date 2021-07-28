@@ -1,0 +1,10 @@
+{
+    "hat": {
+        "recipe": [
+            ["dirt"],["dirt"],["dirt"],
+            ["dirt"],[""],["dirt"],
+            [""],[""],[""]
+        ],
+        "texture": "../textures/hat.png"
+    }
+}

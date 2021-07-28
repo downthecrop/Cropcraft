@@ -25,6 +25,10 @@ def say_hello_py(block):
     global CURRENTBLOCK
     CURRENTBLOCK = block
 
+def normalize(pos):
+    x,y,z = pos
+    return round(x), round(y), round(z)
+
 def new_crosshair(w,h):
     return pyglet.text.Label('+',font_name='Times New Roman',font_size=36,x=w/2,y=h/2)
 
@@ -46,7 +50,7 @@ def cube_vertices(pos, n=.5):
     ]
 
 class World:
-    def __init__(self,x=16,y=16,z=16):
+    def __init__(self):
         self.batch = pyglet.graphics.Batch()
         self._shown = {}
         self.blocks = {}
@@ -79,7 +83,7 @@ class World:
         previous = None
         for _ in range(m*4):
             x,y,z = pos
-            block = (round(x), round(y), round(z))
+            block = normalize(pos)
             if block != previous and block in self._shown:
                 return block, previous
             previous = block
@@ -122,7 +126,7 @@ class World:
                     if y_max <= 9:
                         self.add_block((chunk_x*16+x,9,chunk_z*16+z),"water")
                     #trees
-                    elif random.randrange(150) == 1:
+                    elif random.randrange(200) == 1:
                         self.add_block((chunk_x*16+x,y_max,chunk_z*16+z),"wood")
                         self.add_block((chunk_x*16+x,y_max+1,chunk_z*16+z),"wood")
                         self.add_block((chunk_x*16+x,y_max+2,chunk_z*16+z),"wood")
@@ -145,7 +149,6 @@ class Player:
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        x,y,z = 16,16,16
         self.lock = True
         self.hud_position = self.width/2-364
         self.fps_display = pyglet.window.FPSDisplay(self)
@@ -159,6 +162,7 @@ class Window(pyglet.window.Window):
         self.holding = "dirt"
         self.hud_offset = 0
         self.world = World()
+        #I put the player at 10K,10K because of a chunkgen bug at x=0 and z=0
         self.player = Player((10000,12,10000),(-90,0))
         pyglet.clock.schedule(self.game_loop)
 
@@ -215,8 +219,7 @@ class Window(pyglet.window.Window):
         if KEY == key.M: eel.init('web'); eel.start('craft.html')
     
     def gen_rad_chunks(self,pos):
-        x,y,z = pos
-        x,y,z = round(x),round(y),round(z)
+        x,y,z = normalize(pos)
         points = {
             (0,0,0),
             (16,0,0),
@@ -229,8 +232,8 @@ class Window(pyglet.window.Window):
             (16,0,-16),
         }
         for point in points:
-            x_,y,z_ = point
-            self.world.gen_chunk((x+x_,y,z+z_))
+            x_,y_,z_ = point
+            self.world.gen_chunk((x+x_,y_,z+z_))
             
 
     def player_movement(self):
@@ -238,7 +241,6 @@ class Window(pyglet.window.Window):
         dx, dz = math.sin(rotY), math.cos(rotY)
         keys = self.keys
         pos = self.player.pos
-        _pos = pos.copy()
         s = self.player.speed
         if keys[key.W]: pos[0] += dx*s; pos[2] -= dz*s
         if keys[key.S]: pos[0] -= dx*s; pos[2] += dz*s

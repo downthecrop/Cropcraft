@@ -1,24 +1,18 @@
-import eel,math,pyglet,time,threading,random
+import eel,math,pyglet,time,random
 from pyglet.gl import *
 from pyglet.window import *
 from pyglet import image
 from opensimplex import OpenSimplex
 
-noise = OpenSimplex()
-
 FACES=[(0,1,0),(0,-1,0),(-1,0,0),(1,0,0),(0,0,1),(0,0,-1),(0,0,0)]
 TEX=0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1
+BLOCKS={'dirt':'dirt.png','grass':'grass_top.png','stone':'stone.png','wood':'wood.png','leaf':'leaf.png','water':'water.png'}
+TREE={(0,1,0):'wood',(0,2,0):'wood',(0,3,0):'wood',(0,4,0):'leaf',(1,3,0):'leaf',(-1,3,0):'leaf',(0,3,1):'leaf',(0,3,-1):'leaf'}
+POINTS={(0,0,0),(16,0,0),(-16,0,0),(0,0,16),(0,0,-16),(16,0,16),(-16,0,16),(-16,0,-16),(16,0,-16)}
 CURRENTBLOCK = "dirt"
 TEXTURES = {}
 
-BLOCKS = {
-    "dirt":"dirt.png",
-    "grass":"grass_top.png",
-    "stone":"stone.png",
-    "wood": "wood.png",
-    "leaf": "leaf.png",
-    "water": "water.png",
-}
+noise = OpenSimplex()
 
 @eel.expose
 def say_hello_py(block):
@@ -30,7 +24,7 @@ def normalize(pos):
     return round(x), round(y), round(z)
 
 def new_crosshair(w,h):
-    return pyglet.text.Label('+',font_name='Times New Roman',font_size=36,x=w/2,y=h/2)
+    return pyglet.text.Label('+',font_size=36,x=w/2,y=h/2)
 
 def get_tex(f):
     d = BLOCKS[f]
@@ -69,10 +63,8 @@ class World:
     def show_block(self,pos,block_type):
         try:
             self._shown[pos] = self.batch.add(24, GL_QUADS, TEXTURES[block_type],('v3f/static', cube_vertices(pos)),('t2f/static', TEX))
-        except Exception as e:
-            print(e)
+        except:
             get_tex(block_type)
-            print("getting tex",block_type)
             self.show_block(pos,block_type)
     
     def hide_block(self,pos):
@@ -109,36 +101,25 @@ class World:
         chunk_z = int(pos[2]/16)
         if (chunk_x,chunk_z) not in self.chunks:
             self.chunks.add((chunk_x,chunk_z))
-            x,y,z = 0,0,0
-            while z < 16:
-                while x < 16:
+            for z in range(16):
+                for x in range(16):
                     y_max = 6 + int(((noise.noise2d(chunk_x+x/16, chunk_z+z/16)+1)/2)*15)
-                    while y < y_max:
+                    for y in range(y_max):
                         if y == y_max-1: id = "grass"
                         elif y < 3: id = "stone"
                         else: id = "dirt"
                         self.add_block((chunk_x*16+x,y,chunk_z*16+z),id)
-                        y += 1
                     # Set water level to y = 9
                     if y_max <= 9:
                         self.add_block((chunk_x*16+x,9,chunk_z*16+z),"water")
                     #trees
                     elif random.randrange(200) == 1:
-                        self.add_block((chunk_x*16+x,y_max,chunk_z*16+z),"wood")
-                        self.add_block((chunk_x*16+x,y_max+1,chunk_z*16+z),"wood")
-                        self.add_block((chunk_x*16+x,y_max+2,chunk_z*16+z),"wood")
-                        self.add_block((chunk_x*16+x,y_max+3,chunk_z*16+z),"leaf")
-                        self.add_block((chunk_x*16+x+1,y_max+2,chunk_z*16+z),"leaf")
-                        self.add_block((chunk_x*16+x-1,y_max+2,chunk_z*16+z),"leaf")
-                        self.add_block((chunk_x*16+x,y_max+2,chunk_z*16+z+1),"leaf")
-                        self.add_block((chunk_x*16+x,y_max+2,chunk_z*16+z-1),"leaf")
-                    x += 1
-                    y = 0 
-                x = 0
-                z += 1
+                        for block in TREE:
+                            x_,y_,z_ = block
+                            self.add_block((chunk_x*16+x+x_,y_max-1+y_,chunk_z*16+z+z_),TREE[block])
 
 class Player:
-    def __init__(self, pos=(0, 0, 0), rot=(0, 0)):
+    def __init__(self,pos,rot):
         self.pos = list(pos)
         self.rot = list(rot)
         self.speed = .05
@@ -153,6 +134,12 @@ class Window(pyglet.window.Window):
         #Blits
         self.hud = image.load('./web/textures/hud.png')
         self.active = image.load('./web/textures/active.png')
+        self.dirt = image.load('./web/textures/dirt.png')
+        self.grass = image.load('./web/textures/grass_top.png')
+        self.wood = image.load('./web/textures/wood.png')
+        self.leaf = image.load('./web/textures/leaf.png')
+        self.stone = image.load('./web/textures/stone.png')
+        
         self.crosshair =  new_crosshair(self.width,self.height)
         self.keys = key.KeyStateHandler()
         self.push_handlers(self.keys)
@@ -216,22 +203,10 @@ class Window(pyglet.window.Window):
         if KEY == key.M: eel.init('web'); eel.start('craft.html')
     
     def gen_rad_chunks(self,pos):
-        points = {
-            (0,0,0),
-            (16,0,0),
-            (-16,0,0),
-            (0,0,16),
-            (0,0,-16),
-            (16,0,16),
-            (-16,0,16),
-            (-16,0,-16),
-            (16,0,-16),
-        }
         x,y,z = normalize(pos)
-        for point in points:
+        for point in POINTS:
             x_,y_,z_ = point
             self.world.gen_chunk((x+x_,y_,z+z_))
-            
 
     def player_movement(self):
         rotY = -self.player.rot[1]/180*math.pi
@@ -273,6 +248,11 @@ class Window(pyglet.window.Window):
     
     def draw_hud(self):
         self.crosshair.draw()
+        self.dirt.blit(self.hud_position+24, 16, 0,width=50,height=50)
+        self.grass.blit(self.hud_position+100, 16, 0,width=50,height=50)
+        self.wood.blit(self.hud_position+180, 16, 0,width=50,height=50)
+        self.leaf.blit(self.hud_position+260, 16, 0,width=50,height=50)
+        self.stone.blit(self.hud_position+340, 16, 0,width=50,height=50)
         self.active.blit(self.hud_position+self.hud_offset, 0, 0) #Front
         self.hud.blit(self.hud_position, 0, 0)                    #HUD
 

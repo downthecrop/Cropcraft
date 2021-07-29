@@ -9,10 +9,9 @@ TEXCORDS=0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0
 BLOCKS={'dirt':'dirt.png','grass':'grass_top.png','stone':'stone.png','wood':'wood.png','leaf':'leaf.png','water':'water.png'}
 TREE={(0,1,0):'wood',(0,2,0):'wood',(0,3,0):'wood',(0,4,0):'leaf',(1,3,0):'leaf',(-1,3,0):'leaf',(0,3,1):'leaf',(0,3,-1):'leaf'}
 POINTS={(0,0,0),(16,0,0),(-16,0,0),(0,0,16),(0,0,-16),(16,0,16),(-16,0,16),(-16,0,-16),(16,0,-16)}
-CURRENTBLOCK = "dirt"
-TEXTURES = {}
-
-noise = OpenSimplex()
+CURRENTBLOCK="dirt"
+PATH="./web/textures/"
+TEXTURES={}
 
 @eel.expose
 def say_hello_py(block):
@@ -28,7 +27,7 @@ def new_crosshair(w,h):
 
 def get_tex(f):
     d = BLOCKS[f]
-    TEXTURES[f] = pyglet.graphics.TextureGroup(pyglet.image.load("./web/textures/"+d).get_texture())
+    TEXTURES[f] = pyglet.graphics.TextureGroup(pyglet.image.load(PATH+d).get_texture())
     glEnable(GL_TEXTURE_2D)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 
@@ -49,6 +48,7 @@ class World:
         self._shown = {}
         self.blocks = {}
         self.chunks = set()
+        self.water_level = 9
 
     def add_block(self,pos,id):
         self.blocks[pos] = id
@@ -103,20 +103,21 @@ class World:
             self.chunks.add((chunk_x,chunk_z))
             for z in range(16):
                 for x in range(16):
-                    y_max = 6 + int(((noise.noise2d(chunk_x+x/16, chunk_z+z/16)+1)/2)*15)
+                    y_max = 6 + int(((OpenSimplex().noise2d(chunk_x+x/16, chunk_z+z/16)+1)/2)*15)
+                    __x = chunk_x*16+x
+                    __z = chunk_z*16+z
                     for y in range(y_max):
                         if y == y_max-1: id = "grass"
                         elif y < 3: id = "stone"
                         else: id = "dirt"
-                        self.add_block((chunk_x*16+x,y,chunk_z*16+z),id)
-                    # Set water level to y = 9
-                    if y_max <= 9:
-                        self.add_block((chunk_x*16+x,9,chunk_z*16+z),"water")
+                        self.add_block((__x,y,__z),id)
+                    if y_max <= self.water_level:
+                        self.add_block((__x,self.water_level,__z),"water")
                     #trees
                     elif random.randrange(200) == 1:
                         for block in TREE:
-                            x_,y_,z_ = block
-                            self.add_block((chunk_x*16+x+x_,y_max-1+y_,chunk_z*16+z+z_),TREE[block])
+                            _x,_y,_z = block
+                            self.add_block((__x+_x,y_max-1+_y,__z+_z),TREE[block])
 
 class Player:
     def __init__(self,pos,rot):
@@ -130,15 +131,14 @@ class Window(pyglet.window.Window):
         
         #GUI
         self.hud_pos = self.width/2-364
-        self.path = "./web/textures/"
         self.fps_display = pyglet.window.FPSDisplay(self)
-        self.hud = image.load(self.path + 'hud.png')
-        self.active = image.load(self.path + 'active.png')
-        self.dirt = image.load(self.path + 'dirt.png')
-        self.grass = image.load(self.path + 'grass_top.png')
-        self.wood = image.load(self.path + 'wood.png')
-        self.leaf = image.load(self.path + 'leaf.png')
-        self.stone = image.load(self.path + 'stone.png')
+        self.hud = image.load(PATH + 'hud.png')
+        self.active = image.load(PATH + 'active.png')
+        self.dirt = image.load(PATH + 'dirt.png')
+        self.grass = image.load(PATH + 'grass_top.png')
+        self.wood = image.load(PATH + 'wood.png')
+        self.leaf = image.load(PATH + 'leaf.png')
+        self.stone = image.load(PATH + 'stone.png')
         self.crosshair =  new_crosshair(self.width,self.height)
         self.hud_offset = 0
         
@@ -150,7 +150,7 @@ class Window(pyglet.window.Window):
         
         self.world = World()
         #I put the player at 10K,10K because of a chunkgen bug at x=0 and z=0
-        self.player = Player((10000,12,10000),(-90,0))
+        self.player = Player((10000,12,10000),(-30,0))
         pyglet.clock.schedule(self.game_loop)
 
     def push(self):

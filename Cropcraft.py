@@ -5,7 +5,7 @@ from pyglet import image
 from opensimplex import OpenSimplex
 
 FACES=[(0,1,0),(0,-1,0),(-1,0,0),(1,0,0),(0,0,1),(0,0,-1),(0,0,0)]
-TEX=0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1
+TEXCORDS=0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1
 BLOCKS={'dirt':'dirt.png','grass':'grass_top.png','stone':'stone.png','wood':'wood.png','leaf':'leaf.png','water':'water.png'}
 TREE={(0,1,0):'wood',(0,2,0):'wood',(0,3,0):'wood',(0,4,0):'leaf',(1,3,0):'leaf',(-1,3,0):'leaf',(0,3,1):'leaf',(0,3,-1):'leaf'}
 POINTS={(0,0,0),(16,0,0),(-16,0,0),(0,0,16),(0,0,-16),(16,0,16),(-16,0,16),(-16,0,-16),(16,0,-16)}
@@ -62,7 +62,7 @@ class World:
 
     def show_block(self,pos,block_type):
         try:
-            self._shown[pos] = self.batch.add(24, GL_QUADS, TEXTURES[block_type],('v3f/static', cube_vertices(pos)),('t2f/static', TEX))
+            self._shown[pos] = self.batch.add(24, GL_QUADS, TEXTURES[block_type],('v3f/static', cube_vertices(pos)),('t2f/static', TEXCORDS))
         except:
             get_tex(block_type)
             self.show_block(pos,block_type)
@@ -127,24 +127,27 @@ class Player:
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.lock = True
-        self.hud_position = self.width/2-364
+        
+        #GUI
+        self.hud_pos = self.width/2-364
+        self.path = "./web/textures/"
         self.fps_display = pyglet.window.FPSDisplay(self)
-        
-        #Blits
-        self.hud = image.load('./web/textures/hud.png')
-        self.active = image.load('./web/textures/active.png')
-        self.dirt = image.load('./web/textures/dirt.png')
-        self.grass = image.load('./web/textures/grass_top.png')
-        self.wood = image.load('./web/textures/wood.png')
-        self.leaf = image.load('./web/textures/leaf.png')
-        self.stone = image.load('./web/textures/stone.png')
-        
+        self.hud = image.load(self.path + 'hud.png')
+        self.active = image.load(self.path + 'active.png')
+        self.dirt = image.load(self.path + 'dirt.png')
+        self.grass = image.load(self.path + 'grass_top.png')
+        self.wood = image.load(self.path + 'wood.png')
+        self.leaf = image.load(self.path + 'leaf.png')
+        self.stone = image.load(self.path + 'stone.png')
         self.crosshair =  new_crosshair(self.width,self.height)
+        self.hud_offset = 0
+        
+        #Movement/Gameplay
         self.keys = key.KeyStateHandler()
+        self.lock = True
         self.push_handlers(self.keys)
         self.holding = "dirt"
-        self.hud_offset = 0
+        
         self.world = World()
         #I put the player at 10K,10K because of a chunkgen bug at x=0 and z=0
         self.player = Player((10000,12,10000),(-90,0))
@@ -248,13 +251,13 @@ class Window(pyglet.window.Window):
     
     def draw_hud(self):
         self.crosshair.draw()
-        self.dirt.blit(self.hud_position+24, 16, 0,width=50,height=50)
-        self.grass.blit(self.hud_position+100, 16, 0,width=50,height=50)
-        self.wood.blit(self.hud_position+180, 16, 0,width=50,height=50)
-        self.leaf.blit(self.hud_position+260, 16, 0,width=50,height=50)
-        self.stone.blit(self.hud_position+340, 16, 0,width=50,height=50)
-        self.active.blit(self.hud_position+self.hud_offset, 0, 0) #Front
-        self.hud.blit(self.hud_position, 0, 0)                    #HUD
+        self.dirt.blit(self.hud_pos+24, 16, 0,width=50,height=50)
+        self.grass.blit(self.hud_pos+100, 16, 0,width=50,height=50)
+        self.wood.blit(self.hud_pos+180, 16, 0,width=50,height=50)
+        self.leaf.blit(self.hud_pos+260, 16, 0,width=50,height=50)
+        self.stone.blit(self.hud_pos+340, 16, 0,width=50,height=50)
+        self.active.blit(self.hud_pos+self.hud_offset, 0, 0)
+        self.hud.blit(self.hud_pos, 0, 0)
 
     def on_draw(self):
         self.clear()
@@ -273,7 +276,7 @@ if __name__ == '__main__':
     @window.event
     def on_resize(width, height):
         window.crosshair = new_crosshair(width,height)
-        window.hud_position = width/2-364
+        window.hud_pos = width/2-364
     
     #Face Culling
     glEnable(GL_DEPTH_TEST)
